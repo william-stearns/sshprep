@@ -2,7 +2,7 @@
 #Performs all the setup steps needed to connect to one or more hosts listed on the command line
 #Copyright 2022 William Stearns <william.l.stearns@gmail.com>
 #Released under the GPL 3.0
-#Version 0.1.0
+#Version 0.1.1
 
 
 
@@ -92,7 +92,7 @@ load_params() {
 
 check_requirements() {
 	status "Checking system requirments"
-	require_util basename chmod cp date dig egrep mkdir mktemp ssh ssh-add ssh-keygen touch || fail "Missing one or more tools, please install and rerun"
+	require_util awk basename chmod cp date dig egrep head mkdir mktemp ssh ssh-add ssh-keygen touch uniq || fail "Missing one or more tools, please install and rerun"
 	step "perform system checks"
 	mkdir -p "$HOME/.ssh"
 	chmod -R go-rwx "$HOME/.ssh"
@@ -134,7 +134,7 @@ check_agent() {
 	status "Checking that keys are loaded into the agent"
 	#Confirm we have at least one key loaded into ssh-agent.
 
-	if [ `ssh-add -l | wc -l` -eq 0 ] || [ "`ssh-add -l`" = 'The agent has no identities.' ]; then
+	if [ $(ssh-add -l | wc -l) -eq 0 ] || [ "$(ssh-add -l)" = 'The agent has no identities.' ]; then
 		#No keys currently loaded into the agent, load at least one
 		[ -s "$HOME/.ssh/id_rsa" -a -s "$HOME/.ssh/id_rsa.pub" ] || check_key
 		status "About to load keys into ssh-agent; you may be asked for your passphrase(s)"
@@ -142,7 +142,7 @@ check_agent() {
 		ssh-add
 	fi
 
-	if [ `ssh-add -l | wc -l` -eq 0 ] || [ "`ssh-add -l`" = 'The agent has no identities.' ]; then
+	if [ $(ssh-add -l | wc -l) -eq 0 ] || [ "$(ssh-add -l)" = 'The agent has no identities.' ]; then
 		fail "Unable to get any keys into the ssh-agent"
 	fi
 
@@ -154,12 +154,12 @@ prepend_config_block() {
 	#We prepend new stanzas since the end of the file may contain a default stanza like "Host * ......"
 
 	if [ -s "$HOME/.ssh/config" ]; then
-		cp -p "$HOME/.ssh/config" "$HOME/.ssh/config.`date '+%Y%m%d%H%M%S%N'`"
+		cp -p "$HOME/.ssh/config" "$HOME/.ssh/config.$(date '+%Y%m%d%H%M%S%N')"
 	elif [ ! -e "$HOME/.ssh/config" ]; then
 		touch "$HOME/.ssh/config"
 	fi
 
-	new_config=`mktemp -q /tmp/$(basename $0).XXXXXX` || fail "Unable to make temporary file during ~/.ssh/config update."
+	new_config=$(mktemp -q /tmp/$(basename $0).XXXXXX) || fail "Unable to make temporary file during ~/.ssh/config update."
 	echo -e "$1" >"$new_config"
 	cat "$HOME/.ssh/config" >>"$new_config"
 	step "move new config file ($new_config) over existing $HOME/.ssh/config"
@@ -185,10 +185,10 @@ check_config_block() {
 		if [ -n "$3" ]; then
 			status "User-supplied target IP or hostname ($3) for $2"
 			prepend_config_block "\nHost ${2}\n\tHostname\t\t${3}\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
-		elif [ -n "`which getent 2>/dev/null`" ] && [ -n "$(getent hosts "$2")" ]; then
+		elif [ -n "$(which getent 2>/dev/null)" ] && [ -n "$(getent hosts "$2")" ]; then
 			status "running on non-mac, appears we have an entry in /etc/hosts"
-			ip4=`getent ahostsv4 "$2" | awk '{print $1}' | uniq | head -1`
-			ip6=`getent ahostsv6 "$2" | awk '{print $1}' | uniq | head -1`
+			ip4=$(getent ahostsv4 "$2" | awk '{print $1}' | uniq | head -1)
+			ip6=$(getent ahostsv6 "$2" | awk '{print $1}' | uniq | head -1)
 
 			if [ -n "$ip4" -a -n "$ip6" ]; then
 				status "Have both ipv4 and ipv6 addresses for $2, adding both blocks"
@@ -197,14 +197,14 @@ check_config_block() {
 				prepend_config_block "\nHost ${2}\n\tHostname\t\t$ip4$ip6\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
 			#We don't include a block for neither ip4 nor ip6 set as "getent hosts" did successfully get one or the other.
 			fi
-		elif [ -n "`which dscacheutil 2>/dev/null`" ] && [ -n "$(dscacheutil -q host -a name "$2")" ]; then
+		elif [ -n "$(which dscacheutil 2>/dev/null)" ] && [ -n "$(dscacheutil -q host -a name "$2")" ]; then
 			status "running on mac, appears we have an entry in /etc/hosts"
-			local_ip=`dscacheutil -q host -a name "$2" | grep '^ip_address' | awk '{print $2}'`
+			local_ip=$(dscacheutil -q host -a name "$2" | grep '^ip_address' | awk '{print $2}')
 			prepend_config_block "\nHost ${2}\n\tHostname\t\t$local_ip\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
 		else
 			status "No user-supplied target IP or hostname for $2, look one up"
-			ip4=`dig +short ${2} A`
-			ip6=`dig +short ${2} AAAA`
+			ip4=$(dig +short ${2} A)
+			ip6=$(dig +short ${2} AAAA)
 
 			if [ -n "$ip4" ]; then
 				if [ -n "$ip6" ]; then
@@ -236,7 +236,7 @@ sshprep_main() {
 	check_agent
 
 	status "Retrieving public key(s)"
-	pub_key_content="`ssh-add -L`"
+	pub_key_content="$(ssh-add -L)"
 
 	retval=0
 	for one_target in $target_list ; do
