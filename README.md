@@ -12,6 +12,8 @@
 - Confirms that passwordless login works at the end.
 - -v for verbose mode
 - -s for single-step mode; user is asked before each potential system change.
+- -h for command line help
+- Will operate on an intermediate host with no local keys if one ssh's there with -A (forward agent) mode
 
 # Additional notes
 - Only standard Linux/posix utilities needed

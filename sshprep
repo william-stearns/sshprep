@@ -2,7 +2,7 @@
 #Performs all the setup steps needed to connect to one or more hosts listed on the command line
 #Copyright 2022 William Stearns <william.l.stearns@gmail.com>
 #Released under the GPL 3.0
-#Version 0.1.1
+#Version 0.1.3
 
 
 
@@ -65,6 +65,24 @@ step() {
 }
 
 
+show_help() {
+	echo "This tool does all the setup needed to ssh to one or more hosts using ssh keys." >&2
+	echo "Usage:" >&2
+	echo >&2
+	echo "$0 [host] [host] [host]..." >&2
+	echo -e "\tDo basic setup and install ssh key on all hosts specified on the command line." >&2
+	echo -e "\tHost may optionally include a username, like bob@www.example.com" >&2
+	echo "$0 -v [host]..." >&2
+	echo -e "\tBe verbose - show steps to be taken." >&2
+	echo "$0 -s [host]..." >&2
+	echo -e "\tSingle step mode - ask permission before making changes (verbose mode is automatically enabled in single step mode)." >&2
+	echo "$0 -h" >&2
+	echo "$0 --help" >&2
+	echo -e "\tShow this help text." >&2
+	exit 0
+}
+
+
 load_params() {
 	target_list=''
 
@@ -80,6 +98,9 @@ load_params() {
 		-s|--step)
 			verbose='yes'
 			step='yes'
+			;;
+		-h|--help)
+			show_help
 			;;
 		*)
 			target_list="$target_list $1"
@@ -184,7 +205,7 @@ check_config_block() {
 		status "$2 does not have a configuration block in ~/.ssh/config, adding one."
 		if [ -n "$3" ]; then
 			status "User-supplied target IP or hostname ($3) for $2"
-			prepend_config_block "\nHost ${2}\n\tHostname\t\t${3}\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
+			prepend_config_block "\nHost ${2} ${3}\n\tHostname\t\t${3}\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
 		elif [ -n "$(which getent 2>/dev/null)" ] && [ -n "$(getent hosts "$2")" ]; then
 			status "running on non-mac, appears we have an entry in /etc/hosts"
 			ip4=$(getent ahostsv4 "$2" | awk '{print $1}' | uniq | head -1)
@@ -192,15 +213,15 @@ check_config_block() {
 
 			if [ -n "$ip4" -a -n "$ip6" ]; then
 				status "Have both ipv4 and ipv6 addresses for $2, adding both blocks"
-				prepend_config_block "\nHost ${2}\n\tHostname\t\t$ip4\n\tHostKeyAlias\t\t${2}\n${user_line}\n\nHost ${2}-v6\n\tHostname\t\t$ip6\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
+				prepend_config_block "\nHost ${2} ${ip4}\n\tHostname\t\t$ip4\n\tHostKeyAlias\t\t${2}\n${user_line}\n\nHost ${2}-v6 ${ip6}\n\tHostname\t\t$ip6\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
 			elif [ -n "$ip4" -o -n "$ip6" ]; then		#One or the other but not both, which is why we can have both ip4 and ip6 on the Hostname line.
-				prepend_config_block "\nHost ${2}\n\tHostname\t\t$ip4$ip6\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
+				prepend_config_block "\nHost ${2} ${ip4}${ip6}\n\tHostname\t\t${ip4}${ip6}\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
 			#We don't include a block for neither ip4 nor ip6 set as "getent hosts" did successfully get one or the other.
 			fi
 		elif [ -n "$(which dscacheutil 2>/dev/null)" ] && [ -n "$(dscacheutil -q host -a name "$2")" ]; then
 			status "running on mac, appears we have an entry in /etc/hosts"
 			local_ip=$(dscacheutil -q host -a name "$2" | grep '^ip_address' | awk '{print $2}')
-			prepend_config_block "\nHost ${2}\n\tHostname\t\t$local_ip\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
+			prepend_config_block "\nHost ${2} ${local_ip}\n\tHostname\t\t${local_ip}\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
 		else
 			status "No user-supplied target IP or hostname for $2, look one up"
 			ip4=$(dig +short ${2} A)
@@ -209,19 +230,19 @@ check_config_block() {
 			if [ -n "$ip4" ]; then
 				if [ -n "$ip6" ]; then
 					status "Have both ipv4 and ipv6 addresses for $2, adding both blocks"
-					prepend_config_block "\nHost ${2}\n\tHostname\t\t$ip4\n\tHostKeyAlias\t\t${2}\n${user_line}\n\nHost ${2}-v6\n\tHostname\t\t$ip6\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
+					prepend_config_block "\nHost ${2} ${ip4}\n\tHostname\t\t${ip4}\n\tHostKeyAlias\t\t${2}\n${user_line}\n\nHost ${2}-v6 ${ip6}\n\tHostname\t\t${ip6}\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
 				else
 					status "Have an IPv4 address only for $2"
-					prepend_config_block "\nHost ${2}\n\tHostname\t\t$ip4\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
+					prepend_config_block "\nHost ${2} ${ip4}\n\tHostname\t\t${ip4}\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
 				fi
 			else
 				if [ -n "$ip6" ]; then
 					status "Have an ipv6 address only for $2"
-					prepend_config_block "\nHost ${2} ${2}-v6\n\tHostname\t\t$ip6\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
+					prepend_config_block "\nHost ${2} ${2}-v6 ${ip6}\n\tHostname\t\t${ip6}\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
 				else
 					status "No ipv4 or ipv6 address found for ${2}.  Please enter an IP address to use:"
 					read ip_or_hostname
-					prepend_config_block "\nHost ${2}\n\tHostname\t\t$ip_or_hostname\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
+					prepend_config_block "\nHost ${2} ${ip_or_hostname}\n\tHostname\t\t${ip_or_hostname}\n\tHostKeyAlias\t\t${2}\n${user_line}\n"
 				fi
 			fi
 		fi
