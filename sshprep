@@ -2,7 +2,7 @@
 #Performs all the setup steps needed to connect to one or more hosts listed on the command line
 #Copyright 2022 William Stearns <william.l.stearns@gmail.com>
 #Released under the GPL 3.0
-#Version 0.1.3
+#Version 0.1.4
 
 
 
@@ -55,7 +55,7 @@ status() {
 
 step() {
 	if [ "$step" = 'yes' ]; then
-		echo "About to $@ , continue"
+		echo "About to $@ , continue" >&2
 		if askYN ; then
 			return
 		else
@@ -76,6 +76,8 @@ show_help() {
 	echo -e "\tBe verbose - show steps to be taken." >&2
 	echo "$0 -s [host]..." >&2
 	echo -e "\tSingle step mode - ask permission before making changes (verbose mode is automatically enabled in single step mode)." >&2
+	echo "$0 --authpath /etc/ssh/keys-root/ [host]..." >&2
+	echo -e "\tLocation of the authorized_keys file (useful for VMWare ESXi).  This path is used for _all_ hosts on this command line." >&2
 	echo "$0 -h" >&2
 	echo "$0 --help" >&2
 	echo -e "\tShow this help text." >&2
@@ -101,6 +103,10 @@ load_params() {
 			;;
 		-h|--help)
 			show_help
+			;;
+		--authpath)
+			authpath="$2"
+			shift
 			;;
 		*)
 			target_list="$target_list $1"
@@ -284,8 +290,13 @@ sshprep_main() {
 		else
 			status "Sending public key(s) over to $one_target .  You may be asked for your password for this account."
 			step "send public keys over to $one_target"
-			echo "$pub_key_content" \
-			 | ssh "$one_target" 'mkdir -p .ssh ; cat >>.ssh/authorized_keys ; chmod go-rwx ./ .ssh/ .ssh/authorized_keys'
+			if [ -n "$authpath" ]; then
+				echo "$pub_key_content" \
+				 | ssh "$one_target" 'mkdir -p '"$authpath"' ; cat >>'"$authpath"'/authorized_keys ; chmod go-rwx '"$authpath"' '"$authpath"'/authorized_keys'
+			else
+				echo "$pub_key_content" \
+				 | ssh "$one_target" 'mkdir -p .ssh ; cat >>.ssh/authorized_keys ; chmod go-rwx ./ .ssh/ .ssh/authorized_keys'
+			fi
 
 			step "confirm $one_target reachable by key"
 			if ssh -o 'PasswordAuthentication=no' -o 'PreferredAuthentications=publickey' "$one_target" 'touch .ssh/reached-by-key ; true' 2>/dev/null ; then
