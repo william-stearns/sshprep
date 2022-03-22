@@ -29,10 +29,12 @@ For an introduction to using ssh keys and sshprep, please see https://www.youtub
 
 
 #Quickstart:
-`curl -fsSL https://raw.githubusercontent.com/william-stearns/sshprep/main/sshprep -O`
-`chmod 755 sshprep`
-`mv sshprep *some_directory_in_path*`
-`sshprep *ssh_hostname*``
+```
+curl -fsSL https://raw.githubusercontent.com/william-stearns/sshprep/main/sshprep -O
+chmod 755 sshprep
+mv sshprep *some_directory_in_path*
+sshprep *ssh_hostname*
+```
 - You should now be able to `ssh ssh_hostname` without needing a password.
 - You can customise the stanza for ssh_hostname in ~/.ssh/config
 
