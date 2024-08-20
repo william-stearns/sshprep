@@ -2,13 +2,13 @@
 #Performs all the setup steps needed to connect to one or more hosts listed on the command line
 #Copyright 2022 William Stearns <william.l.stearns@gmail.com>
 #Released under the GPL 3.0
-#Version 0.1.7
+#Version 0.1.8
 
 
 
 askYN() {
     # Prints a question mark, reads repeatedly until the user
-    # repsonds with t/T/y/Y or f/F/n/N.
+    # responds with t/T/y/Y or f/F/n/N.
 	TESTYN=""
 	while [ "$TESTYN" != 'Y' ] && [ "$TESTYN" != 'N' ] ; do
 		echo -n '? ' >&2
@@ -124,7 +124,7 @@ check_requirements() {
 	mkdir -p "$HOME/.ssh"
 	chmod -R go-rwx "$HOME/.ssh"
 	if [ -z "$SSH_AUTH_SOCK" ] || [ ! -S "$SSH_AUTH_SOCK" ]; then
-		fail 'We do not appear to have an ssh-agent to talk to.  You may want to add the following 3 lines to ~/.bashrc :
+		fail 'We do not appear to have an ssh-agent to talk to.  You may want to add the following 3 lines to ~/.bashrc on this system :
 if [ -z "$SSH_AUTH_SOCK" ] || [ ! -S "$SSH_AUTH_SOCK" ]; then
 	eval $(ssh-agent -s)
 fi
